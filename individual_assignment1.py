@@ -13,9 +13,9 @@ dataset_name = 'titanic'
 
 #Export the seaborn dataset to Google Sheets
 #Importing Google Sheets API
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]
 credential_dict = st.secrets["google_service_account"]
-credentials = Credentials.from_service_account_info(credential_dict)
+credentials = Credentials.from_service_account_info(credential_dict, scopes = scope)
 client = gspread.authorize(credentials)
 
 #Linking Empty Google Sheets to the environment
