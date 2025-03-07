@@ -7,7 +7,7 @@ import time
 import random
 from streamlit_gsheets import GSheetsConnection
 import gspread
-from oauth2client.service_account import Credentials
+from google.oauth2.service_account import Credentials
 
 dataset_name = 'titanic'
 
