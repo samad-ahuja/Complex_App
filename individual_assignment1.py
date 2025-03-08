@@ -17,7 +17,7 @@ data = pd.read_csv(data_url)'''
 
 #Create a connection object and load data from the Google Sheet
 conn = st.connection("gsheets", type=GSheetsConnection)
-data = conn.read() 
+data = conn.read()
 
 #Streamlit UI
 st.title("Which Class of Passengers Survived the Most")
