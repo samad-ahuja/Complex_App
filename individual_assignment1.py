@@ -11,29 +11,13 @@ from google.oauth2.service_account import Credentials
 
 dataset_name = 'titanic'
 
-#Export the seaborn dataset to Google Sheets
-#Importing Google Sheets API
-scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]
-credential_dict = st.secrets["google_service_account"]
-credentials = Credentials.from_service_account_info(credential_dict, scopes = scope)
-client = gspread.authorize(credentials)
-
-#Linking Empty Google Sheets to the environment
-sheet_name = "DV_Assignment1"
-sheet = client.open(sheet_name).sheet1
-
-#Clean the seaborn dataset before uploading to Google Sheet --> remove rows with null values
-dataset = sns.load_dataset(dataset_name)
-dataset = dataset.dropna()
-
-#Upload the dataset to Google Sheets
-gs_dataset = [dataset.columns.tolist()] + dataset.values.tolist()
-sheet.update('A1', gs_dataset)
-print("Data successfully uploaded to Google Sheets!")
+'''#Published the Google Sheets after transferring the dataset to the sheet, and processed it as a CSV
+data_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlLcx9qhGGOxRRUqFGskjogGGU4_pPSdYblo7TtmXVncD0HOnWTnf0aBIsaqbIzeuXUqGK2PqIUE11/pub?output=csv"
+data = pd.read_csv(data_url)'''
 
 #Create a connection object and load data from the Google Sheet
-conn = st.connection("gsheets", type = GSheetsConnection)
-data = conn.read(worksheet = "Sheet1", ttl = "10m")
+conn = st.connection("gsheets", type=GSheetsConnection)
+data = conn.read() 
 
 #Streamlit UI
 st.title("Which Class of Passengers Survived the Most")
