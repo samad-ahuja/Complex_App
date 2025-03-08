@@ -1,19 +1,12 @@
 import seaborn as sns
 import streamlit as st
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import time
 import random
 from streamlit_gsheets import GSheetsConnection
-import gspread
 from google.oauth2.service_account import Credentials
 
 dataset_name = 'titanic'
-
-'''#Published the Google Sheets after transferring the dataset to the sheet, and processed it as a CSV
-data_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlLcx9qhGGOxRRUqFGskjogGGU4_pPSdYblo7TtmXVncD0HOnWTnf0aBIsaqbIzeuXUqGK2PqIUE11/pub?output=csv"
-data = pd.read_csv(data_url)'''
 
 #Create a connection object and load data from the Google Sheet
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -37,7 +30,7 @@ def plot_chart_a():
         class_data = data[data['class'] == pclass]['survived'].value_counts()
         ax[i].pie(class_data, labels = ["Did not survive", "Survived"], autopct = '%1.1f%%', colors = ['red', 'green'])
         ax[i].set_title(f"Class {pclass} Survival")
-    st.pyploy(fig)
+    st.pyplot(fig)
 
 #Visualization 2: Survival count
 def plot_chart_b():

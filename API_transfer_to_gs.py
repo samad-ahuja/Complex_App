@@ -1,6 +1,5 @@
 import seaborn as sns
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import gspread
 from google.oauth2.service_account import Credentials
 import individual_assignment1 as ia1
