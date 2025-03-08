@@ -32,9 +32,9 @@ if 'start_time' not in st.session_state:
 #Plot Both Visualizations
 #Visualization 1: Survival rate
 def plot_chart_a():
-    fig, ax = plt.subplots(1, len(data['Pclass'].unique()), figsize=(12,4))
-    for i, pclass in enumerate(sorted(data['Pclass'].unique())):
-        class_data = data[data['Pclass'] == pclass]['Survived'].value_counts()
+    fig, ax = plt.subplots(1, len(data['class'].unique()), figsize=(12,4))
+    for i, pclass in enumerate(sorted(data['class'].unique())):
+        class_data = data[data['class'] == pclass]['survived'].value_counts()
         ax[i].pie(class_data, labels = ["Did not survive", "Survived"], autopct = '%1.1f%%', colors = ['red', 'green'])
         ax[i].set_title(f"Class {pclass} Survival")
     st.pyploy(fig)
@@ -42,7 +42,7 @@ def plot_chart_a():
 #Visualization 2: Survival count
 def plot_chart_b():
     fig, ax = plt.subplots()
-    sns.histplot(data=data, x='Pclass', hue='Survived', multiple='stack', discrete=True, shrink=0.8, ax=ax)
+    sns.histplot(data=data, x='class', hue='survived', multiple='stack', discrete=True, shrink=0.8, ax=ax)
     ax.set_title("Survival Count by Passenger Class")
     ax.set_xlabel("Passenger Class")
     ax.set_ylabel("Count")
