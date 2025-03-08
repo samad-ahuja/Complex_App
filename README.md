@@ -52,3 +52,6 @@ DV_Assignment1
 |---.gitignore
 |---requirements.txt                    # Python dependencies
 |---README.md
+
+
+The link to both the GitHub repository and the Streamlit Cloud app can be seen at the end of both the code and the app's UI.
