@@ -1,3 +1,4 @@
+#Import necessary dependencies
 import seaborn as sns
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -20,6 +21,7 @@ def find_survival_rate(data: pd.DataFrame, pass_class: str) -> None:
     survival_rate_dict[pass_class] = (survival_rate, 1 - survival_rate)
     return
 
+#Name of the chosen data sheet
 dataset_name = 'titanic'
 
 #Create the dictionary that will be used for the correct answer in the streamlit app
@@ -58,7 +60,7 @@ def plot_chart_a():
     for i, stats in enumerate(survival_rate_dict.values()):
         pass_class = next(key for key, value in survival_rate_dict.items() if value == stats)
         ax[i].pie(stats, labels = ["Survived", "Did not Survive"], autopct = '%1.1f%%', colors = ['green', 'red'])
-        ax[i].set_title(f"{pass_class}Class Survival")
+        ax[i].set_title(f"{pass_class} Class Survival")
     st.pyplot(fig)
 
 #Ensure data is displayed in the correct order
