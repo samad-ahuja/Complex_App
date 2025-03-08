@@ -33,7 +33,7 @@ print("Data successfully uploaded to Google Sheets!")
 
 #Create a connection object and load data from the Google Sheet
 conn = st.connection("gsheets", type = GSheetsConnection)
-data = conn.read(worksheet = "sheet", ttl = "10m")
+data = conn.read(worksheet = "Sheet1", ttl = "10m")
 
 #Streamlit UI
 st.title("Which Class of Passengers Survived the Most")
