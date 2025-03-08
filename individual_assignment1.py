@@ -14,13 +14,17 @@ data = conn.read()
 
 #Streamlit UI
 st.title("Which Class of Passengers Survived the Most")
-st.write("This app tests which visualization best answers the question above")
+st.header("This app tests which visualization best answers the question above")
 
 #Create the state environment for the charts
 if 'chart' not in st.session_state:
     st.session_state.chart = None
 if 'start_time' not in st.session_state:
     st.session_state.start_time = None
+
+#Ask the question
+st.write("Answer the following question:")
+st.write("Which Class of Passengers survived the most")
 
 #Plot Both Visualizations
 #Visualization 1: Survival rate
