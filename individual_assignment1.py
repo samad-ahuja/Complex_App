@@ -61,6 +61,9 @@ def plot_chart_a():
         ax[i].set_title(f"{pass_class}Class Survival")
     st.pyplot(fig)
 
+#Ensure data is displayed in the correct order
+data['class'] = pd.Categorical(data['class'], categories = ['First', 'Second', 'Third'], ordered = True)
+
 #Visualization 2: Survival count
 def plot_chart_b():
     fig, ax = plt.subplots(figsize = (12, 4))
