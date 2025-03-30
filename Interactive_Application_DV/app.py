@@ -172,8 +172,14 @@ with st.sidebar:
 
 # Main area for data preview, training, and visualization
 if st.session_state['data'] is not None:
-    # Data Preview
-    st.header("Dataset Preview")
+    # Determine dataset title
+    if dataset_option == "Upload Your Own":
+        dataset_title = st.text_input("Enter a title for your dataset:", "Custom Dataset")
+    else:
+        dataset_title = f"{dataset_option} Dataset"
+
+    # Display dataset title above preview
+    st.markdown(f"## 📊 {dataset_title} Preview")
     st.dataframe(st.session_state['data'].head())
     
     # Data information
