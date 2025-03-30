@@ -180,6 +180,19 @@ if st.session_state['data'] is not None:
 
     # Display dataset title above preview
     st.markdown(f"## 📊 {dataset_title} Preview")
+
+    # Clean nulls: drop all-null rows, fill numeric with mean, categorical with mode
+    df = st.session_state['data'].copy()
+    df.dropna(how='all', inplace=True)
+    for col in df.columns:
+        if df[col].dtype in ['float64', 'int64']:
+            df[col].fillna(df[col].mean(), inplace=True)
+        elif df[col].dtype in ['object', 'category']:
+            if df[col].nunique() > 0:
+                df[col].fillna(df[col].mode()[0], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    st.session_state['data'] = df
+
     st.dataframe(st.session_state['data'].head())
     
     # Data information
@@ -239,19 +252,14 @@ if st.session_state['data'] is not None:
                         # Check for categorical features and encode them
                         X = pd.get_dummies(X, drop_first=True)
                         
-                        # Handle missing values - for both X and y
+                        # Handle missing values
                         X = X.fillna(X.mean())
-                        
-                        # For classification, we need to drop NaN values in y
-                        if st.session_state['task_type'] == "Classification":
-                            # Get indices of non-NaN values in y
-                            valid_indices = ~y.isna()
-                            X = X.loc[valid_indices]
-                            y = y.loc[valid_indices]
-                        else:
-                            # For regression, we can fill NaN in y with mean
-                            y = y.fillna(y.mean())
-                        
+
+                        # Remove rows where y is NaN
+                        valid_indices = y.notna()
+                        X = X[valid_indices]
+                        y = y[valid_indices]
+
                         # Split the data
                         X_train, X_test, y_train, y_test = train_test_split(
                             X, y, test_size=test_size, random_state=42
@@ -313,28 +321,26 @@ if st.session_state['data'] is not None:
                                 conf_matrix = confusion_matrix(y_test, y_pred)
                                 
                                 # For ROC curve (if binary classification)
-                                if len(np.unique(y)) == 2 and hasattr(model, "predict_proba"):
-                                    try:
+                                if len(np.unique(y)) == 2:
+                                    if hasattr(model, "predict_proba"):
                                         y_proba = model.predict_proba(X_test)[:, 1]
                                         fpr, tpr, _ = roc_curve(y_test, y_proba)
                                         roc_auc = auc(fpr, tpr)
-                                    except:
+                                    else:
                                         fpr, tpr, roc_auc = None, None, None
                                 else:
                                     fpr, tpr, roc_auc = None, None, None
                                 
-                                # Clear out the model_metrics dictionary before updating
-                                st.session_state['model_metrics'] = {}
-                                
-                                # Explicitly add each key to ensure they exist
-                                st.session_state['model_metrics']['accuracy'] = accuracy
-                                st.session_state['model_metrics']['conf_matrix'] = conf_matrix
-                                st.session_state['model_metrics']['class_report'] = classification_report(y_test, y_pred, output_dict=True)
-                                st.session_state['model_metrics']['fpr'] = fpr
-                                st.session_state['model_metrics']['tpr'] = tpr
-                                st.session_state['model_metrics']['roc_auc'] = roc_auc
-                                st.session_state['model_metrics']['y_test'] = y_test
-                                st.session_state['model_metrics']['y_pred'] = y_pred
+                                st.session_state['model_metrics'] = {
+                                    'accuracy': accuracy,
+                                    'conf_matrix': conf_matrix,
+                                    'class_report': classification_report(y_test, y_pred, output_dict=True),
+                                    'fpr': fpr,
+                                    'tpr': tpr,
+                                    'roc_auc': roc_auc,
+                                    'y_test': y_test,
+                                    'y_pred': y_pred
+                                }
                             
                             # Get feature importance if available
                             if hasattr(model, 'coef_'):
@@ -359,8 +365,6 @@ if st.session_state['data'] is not None:
                     
                     except Exception as e:
                         st.error(f"Error during model training: {e}")
-                        import traceback
-                        st.code(traceback.format_exc())
         else:
             st.warning("Please select target variable and at least one feature to train the model.")
     
@@ -417,42 +421,36 @@ if st.session_state['data'] is not None:
                 
                 col1, col2 = st.columns(2)
                 
-                # Check if 'accuracy' key exists before accessing it
                 with col1:
-                    if 'accuracy' in st.session_state['model_metrics']:
-                        st.metric("Accuracy", f"{st.session_state['model_metrics']['accuracy']:.4f}")
-                    else:
-                        st.error("Accuracy metric not found. Please retrain the model.")
+                    st.metric("Accuracy", f"{st.session_state['model_metrics']['accuracy']:.4f}")
                 
                 with col2:
                     # Extract precision and recall from classification report
-                    if 'class_report' in st.session_state['model_metrics']:
-                        class_report = st.session_state['model_metrics']['class_report']
+                    class_report = st.session_state['model_metrics']['class_report']
+                    
+                    if 'weighted avg' in class_report:
+                        weighted_precision = class_report['weighted avg']['precision']
+                        weighted_recall = class_report['weighted avg']['recall']
                         
-                        if 'weighted avg' in class_report:
-                            weighted_precision = class_report['weighted avg']['precision']
-                            weighted_recall = class_report['weighted avg']['recall']
-                            
-                            st.metric("Weighted Precision", f"{weighted_precision:.4f}")
-                            st.metric("Weighted Recall", f"{weighted_recall:.4f}")
+                        st.metric("Weighted Precision", f"{weighted_precision:.4f}")
+                        st.metric("Weighted Recall", f"{weighted_recall:.4f}")
                 
                 # Confusion Matrix
-                if 'conf_matrix' in st.session_state['model_metrics']:
-                    st.subheader("Confusion Matrix")
-                    
-                    fig, ax = plt.subplots(figsize=(10, 8))
-                    
-                    conf_matrix = st.session_state['model_metrics']['conf_matrix']
-                    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax)
-                    
-                    ax.set_xlabel("Predicted Labels")
-                    ax.set_ylabel("True Labels")
-                    ax.set_title("Confusion Matrix")
-                    
-                    st.pyplot(fig)
+                st.subheader("Confusion Matrix")
+                
+                fig, ax = plt.subplots(figsize=(10, 8))
+                
+                conf_matrix = st.session_state['model_metrics']['conf_matrix']
+                sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax)
+                
+                ax.set_xlabel("Predicted Labels")
+                ax.set_ylabel("True Labels")
+                ax.set_title("Confusion Matrix")
+                
+                st.pyplot(fig)
                 
                 # ROC Curve (only for binary classification)
-                if 'fpr' in st.session_state['model_metrics'] and st.session_state['model_metrics']['fpr'] is not None:
+                if st.session_state['model_metrics']['fpr'] is not None:
                     st.subheader("ROC Curve")
                     
                     fig, ax = plt.subplots(figsize=(10, 8))
@@ -473,17 +471,16 @@ if st.session_state['data'] is not None:
                     st.pyplot(fig)
                 
                 # Classification Report
-                if 'class_report' in st.session_state['model_metrics']:
-                    st.subheader("Classification Report")
-                    
-                    # Convert to dataframe for better display
-                    report_df = pd.DataFrame(st.session_state['model_metrics']['class_report']).transpose()
-                    
-                    # Drop support column to focus on precision, recall, and f1-score
-                    if 'support' in report_df.columns:
-                        report_df = report_df.drop('support', axis=1)
-                    
-                    st.dataframe(report_df.style.format("{:.4f}"))
+                st.subheader("Classification Report")
+                
+                # Convert to dataframe for better display
+                report_df = pd.DataFrame(st.session_state['model_metrics']['class_report']).transpose()
+                
+                # Drop support column to focus on precision, recall, and f1-score
+                if 'support' in report_df.columns:
+                    report_df = report_df.drop('support', axis=1)
+                
+                st.dataframe(report_df.style.format("{:.4f}"))
                 
         else:
             st.info("Please train a model first to see performance metrics.")
