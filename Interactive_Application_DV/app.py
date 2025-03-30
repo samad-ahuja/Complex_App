@@ -177,10 +177,30 @@ if st.session_state['data'] is not None:
     st.dataframe(st.session_state['data'].head())
     
     # Data information
+    # Enhanced Dataset Information
     st.subheader("Dataset Information")
-    buffer = io.StringIO()
-    st.session_state['data'].info(buf=buffer)
-    st.text(buffer.getvalue())
+
+    df_info = {
+        "Column Name": [],
+        "Non-Null Count": [],
+        "Dtype": []
+    }
+
+    for col in st.session_state["data"].columns:
+        df_info["Column Name"].append(col)
+        df_info["Non-Null Count"].append(st.session_state["data"][col].notnull().sum())
+        df_info["Dtype"].append(str(st.session_state["data"][col].dtype))
+
+    df_info_df = pd.DataFrame(df_info)
+
+    # Show as a nice table
+    st.dataframe(df_info_df.style.format().set_properties(**{
+        'text-align': 'left',
+        'border-color': 'lightgray',
+        'border-style': 'solid',
+        'border-width': '1px'
+    }).hide(axis="index"))
+
     
     # Additional data statistics
     st.subheader("Dataset Statistics")
