@@ -120,22 +120,24 @@ with st.sidebar:
         if target_col in categorical_cols:
             categorical_cols.remove(target_col)
         
+        # Initialize empty lists for selected features
+        selected_numerical = []
+        selected_categorical = []
+
         # Numerical feature selection with sliders (quantitative)
         if numerical_cols:
             st.subheader("Numerical Features")
-            selected_numerical = []
             for col in numerical_cols:
                 if st.checkbox(f"Use {col}", value=True):
                     selected_numerical.append(col)
-        
+
         # Categorical feature selection with multiselect (qualitative)
         if categorical_cols:
             st.subheader("Categorical Features")
-            selected_categorical = []
             for col in categorical_cols:
                 if st.checkbox(f"Use {col}", value=True):
                     selected_categorical.append(col)
-        
+
         # Combine selected features
         selected_features = selected_numerical + selected_categorical
         st.session_state['feature_cols'] = selected_features
@@ -186,10 +188,10 @@ if st.session_state['data'] is not None:
     df.dropna(how='all', inplace=True)
     for col in df.columns:
         if df[col].dtype in ['float64', 'int64']:
-            df[col].fillna(df[col].mean(), inplace=True)
+            df[col].fillna(df[col].mean())
         elif df[col].dtype in ['object', 'category']:
             if df[col].nunique() > 0:
-                df[col].fillna(df[col].mode()[0], inplace=True)
+                df[col].fillna(df[col].mode()[0])
     df.reset_index(drop=True, inplace=True)
     st.session_state['data'] = df
 
