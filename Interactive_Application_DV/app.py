@@ -129,30 +129,27 @@ with st.sidebar:
             
             # Add binning option for classification of continuous variables
             st.subheader("Convert Continuous Variable to Categories")
-            if st.checkbox("Enable binning for classification", key="bin_checkbox"):
+            use_binning = st.checkbox("Enable binning for classification", key="bin_checkbox")
+            st.session_state['bin_target'] = use_binning
+
+            if use_binning:
                 num_bins = st.slider("Number of bins", 2, 10, 5, key="num_bins_slider")
+                st.session_state['num_bins'] = num_bins
                 
+                # Simple preview without complex operations
                 try:
-                    # Get the column data
-                    column_data = st.session_state['data'][target_col]
+                    target_data = st.session_state['data'][target_col].copy()
+                    bin_edges = np.linspace(target_data.min(), target_data.max(), num_bins + 1)
                     
-                    # Show a preview of the binning with simplified approach
-                    binned_values = pd.cut(column_data, bins=num_bins)
-                    
-                    # Create a simple preview without complex DataFrame operations
-                    st.write("Preview of binned values:")
-                    st.write(binned_values.value_counts().sort_index())
-                    
-                    # Store binning info in session state
-                    st.session_state['bin_target'] = True
-                    st.session_state['num_bins'] = num_bins
+                    # Show bin ranges
+                    st.write("Bin ranges:")
+                    for i in range(len(bin_edges) - 1):
+                        st.write(f"Bin {i+1}: {bin_edges[i]:.2f} to {bin_edges[i+1]:.2f}")
                     
                     st.success("✅ Binning enabled! The continuous variable will be converted to categories for classification.")
                 except Exception as e:
                     st.error(f"Error in binning preview: {str(e)}")
                     st.session_state['bin_target'] = False
-            else:
-                st.session_state['bin_target'] = False
 
         # Feature selection
         st.subheader("Feature Selection")
