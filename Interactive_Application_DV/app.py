@@ -108,27 +108,57 @@ with st.sidebar:
         st.session_state['target_col'] = target_col
 
         # Check if target is suitable for the selected task type
-        if task_type == "Regression" and st.session_state['data'][target_col].dtype not in ['float64', 'int64']:
-            st.warning(f"'{target_col}' appears to be categorical. Consider using Classification instead of Regression.")
-        elif task_type == "Classification" and st.session_state['data'][target_col].dtype in ['float64', 'int64'] and st.session_state['data'][target_col].nunique() > 10:
-            st.warning(f"'{target_col}' appears to be continuous with {st.session_state['data'][target_col].nunique()} unique values. Consider using Regression instead of Classification.")
+        # Enhanced validation for task type and target variable compatibility
+        is_numeric = st.session_state['data'][target_col].dtype in ['float64', 'int64']
+        unique_values = st.session_state['data'][target_col].nunique()
+        is_likely_continuous = is_numeric and unique_values > 10
+        is_likely_categorical = (not is_numeric) or (is_numeric and unique_values <= 10)
 
-             # Add binning option for classification of continuous variables
-            if st.checkbox("Bin this continuous variable for classification?", key="bin_checkbox"):
+        # Display appropriate warning/error messages based on task and target type
+        if task_type == "Regression" and not is_numeric:
+            st.error(f"⚠️ INAPPROPRIATE MODEL SELECTION: '{target_col}' is categorical, but you've selected Regression. Regression models are designed for predicting continuous numerical values, not categories.")
+            st.info("✅ RECOMMENDATION: Please switch to Classification for this target variable.")
+        elif task_type == "Regression" and is_numeric and unique_values <= 5:
+            st.warning(f"⚠️ POTENTIAL MISMATCH: '{target_col}' has only {unique_values} unique values. While technically possible, regression may not be ideal for targets with so few distinct values.")
+            st.info("✅ RECOMMENDATION: Consider switching to Classification if these values represent distinct categories.")
+        elif task_type == "Classification" and is_likely_continuous:
+            st.error(f"⚠️ INAPPROPRIATE MODEL SELECTION: '{target_col}' appears to be continuous with {unique_values} unique values. Classification models are designed for predicting categorical outcomes, not continuous values.")
+            st.info("✅ RECOMMENDATION: Please switch to Regression for this target variable or bin the continuous values into categories.")
+
+            st.info("✅ RECOMMENDATION: Either switch to Regression for this target variable OR use binning to convert the continuous values into categories (see below).")
+            
+            # Add binning option for classification of continuous variables
+            st.subheader("Convert Continuous Variable to Categories")
+            if st.checkbox("Enable binning for classification", key="bin_checkbox"):
                 num_bins = st.slider("Number of bins", 2, 10, 5, key="num_bins_slider")
                 # Show a preview of the binning
                 binned_values = pd.cut(st.session_state['data'][target_col], bins=num_bins)
-                st.write("Preview of binned values:", binned_values.value_counts())
+                
+                # Display a preview table of the binning
+                bin_preview = pd.DataFrame({
+                    'Bin': binned_values.cat.categories.astype(str),
+                    'Count': binned_values.value_counts(sort=False).values
+                })
+                st.write("Preview of binned values:")
+                st.dataframe(bin_preview)
                 
                 # Store binning info in session state
                 st.session_state['bin_target'] = True
                 st.session_state['num_bins'] = num_bins
+                
+                st.success("✅ Binning enabled! The continuous variable will be converted to categories for classification.")
             else:
                 st.session_state['bin_target'] = False
 
         # Feature selection
         st.subheader("Feature Selection")
         
+        # Initialize empty lists for selected features
+        if 'selected_numerical' not in st.session_state:
+            st.session_state['selected_numerical'] = []
+        if "selected_categorical" not in st.session_state:
+            st.session_state['selected_categorical'] = []
+
         # Divide features into numerical and categorical
         numerical_cols = st.session_state['data'].select_dtypes(include=['float64', 'int64']).columns.tolist()
         categorical_cols = st.session_state['data'].select_dtypes(include=['object', 'category']).columns.tolist()
@@ -138,12 +168,6 @@ with st.sidebar:
             numerical_cols.remove(target_col)
         if target_col in categorical_cols:
             categorical_cols.remove(target_col)
-        
-        # Initialize empty lists for selected features
-        if 'selected_numerical' not in st.session_state:
-            st.session_state['selected_numerical'] = []
-        if 'selected_categorical' not in st.session_state:
-            st.session_state['selected_categorical'] = []
 
         # Clear selections when dataset or target changes
         current_setup = f"{dataset_option}_{target_col}"
