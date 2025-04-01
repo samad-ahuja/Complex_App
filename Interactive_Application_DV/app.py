@@ -107,13 +107,25 @@ with st.sidebar:
         target_col = st.selectbox("Select Target Variable", st.session_state['data'].columns)
         st.session_state['target_col'] = target_col
 
-        # Add this validation:
         # Check if target is suitable for the selected task type
         if task_type == "Regression" and st.session_state['data'][target_col].dtype not in ['float64', 'int64']:
             st.warning(f"'{target_col}' appears to be categorical. Consider using Classification instead of Regression.")
         elif task_type == "Classification" and st.session_state['data'][target_col].dtype in ['float64', 'int64'] and st.session_state['data'][target_col].nunique() > 10:
             st.warning(f"'{target_col}' appears to be continuous with {st.session_state['data'][target_col].nunique()} unique values. Consider using Regression instead of Classification.")
+
+             # Add binning option for classification of continuous variables
+            if st.checkbox("Bin this continuous variable for classification?", key="bin_checkbox"):
+                num_bins = st.slider("Number of bins", 2, 10, 5, key="num_bins_slider")
+                # Show a preview of the binning
+                binned_values = pd.cut(st.session_state['data'][target_col], bins=num_bins)
+                st.write("Preview of binned values:", binned_values.value_counts())
                 
+                # Store binning info in session state
+                st.session_state['bin_target'] = True
+                st.session_state['num_bins'] = num_bins
+            else:
+                st.session_state['bin_target'] = False
+
         # Feature selection
         st.subheader("Feature Selection")
         
@@ -128,39 +140,55 @@ with st.sidebar:
             categorical_cols.remove(target_col)
         
         # Initialize empty lists for selected features
-        selected_numerical = []
-        selected_categorical = []
-        st.session_state['selected_numerical'] = selected_numerical
-        st.session_state['selected_categorical'] = selected_categorical
+        if 'selected_numerical' not in st.session_state:
+            st.session_state['selected_numerical'] = []
+        if 'selected_categorical' not in st.session_state:
+            st.session_state['selected_categorical'] = []
+
+        # Clear selections when dataset or target changes
+        current_setup = f"{dataset_option}_{target_col}"
+        if 'previous_setup' not in st.session_state or st.session_state['previous_setup'] != current_setup:
+            st.session_state['selected_numerical'] = []
+            st.session_state['selected_categorical'] = []
+            st.session_state['previous_setup'] = current_setup
 
         # Add debugging output
-        st.write(f"Num features available: {len(numerical_cols)}")
-        st.write(f"Cat features available: {len(categorical_cols)}")
+        st.write(f"Numerical features available: {len(numerical_cols)}")
+        st.write(f"Categorical features available: {len(categorical_cols)}")
 
-        # Numerical feature selection with sliders (quantitative)
-        if numerical_cols:
-            st.subheader("Numerical Features")
-            for col in numerical_cols:
-                if st.checkbox(f"Use {col}", value=True, key=f"num_{col}"):
-                    st.session_state['selected_numerical'].append(col)
+        # Check if there are any features available
+        if not numerical_cols and not categorical_cols:
+            st.warning("No features available for selection. All columns are either the target variable or have inappropriate data types.")
+        else:
+            # Numerical feature selection
+            if numerical_cols:
+                st.subheader("Numerical Features")
+                for col in numerical_cols:
+                    if st.checkbox(f"Use {col}", value=True, key=f"num_{col}"):
+                        if col not in st.session_state['selected_numerical']:
+                            st.session_state['selected_numerical'].append(col)
+                    elif col in st.session_state['selected_numerical']:
+                        st.session_state['selected_numerical'].remove(col)
 
-        # Categorical feature selection with multiselect (qualitative)
-        if categorical_cols:
-            st.subheader("Categorical Features")
-            for col in categorical_cols:
-                if st.checkbox(f"Use {col}", value=True, key=f"cat_{col}"):
-                    st.session_state['selected_categorical'].append(col)
-        
-        # Add more debugging output
-        st.write(f"Selected numerical features: {len(selected_numerical)}")
-        st.write(f"Selected categorical features: {len(selected_categorical)}")
+            # Categorical feature selection - only show this section if categorical_cols exists
+            if categorical_cols:
+                st.subheader("Categorical Features")
+                for col in categorical_cols:
+                    if st.checkbox(f"Use {col}", value=True, key=f"cat_{col}"):
+                        if col not in st.session_state['selected_categorical']:
+                            st.session_state['selected_categorical'].append(col)
+                    elif col in st.session_state['selected_categorical']:
+                        st.session_state['selected_categorical'].remove(col)
 
-        # Combine selected features
+        # Combine selected features - now always defined from session state
         selected_features = st.session_state['selected_numerical'] + st.session_state['selected_categorical']
         st.session_state['feature_cols'] = selected_features
-        
+
+        # Show a warning if no features are selected
         if not selected_features:
-            st.warning("Please select at least one feature")
+            st.warning("Please select at least one feature to train the model.")
+        else:
+            st.success(f"Selected {len(selected_features)} features for training")
         
         # Add a separator
         st.divider()
@@ -267,6 +295,18 @@ if st.session_state['data'] is not None:
                         # Get the data
                         X = st.session_state['data'][st.session_state['feature_cols']]
                         y = st.session_state['data'][st.session_state['target_col']]
+
+                        # Check if we need to convert y to numeric for regression
+                        if st.session_state['task_type'] == "Regression" and not pd.api.types.is_numeric_dtype(y):
+                            st.warning(f"Converting categorical target '{st.session_state['target_col']}' to numeric for regression")
+                            # Use factorize to convert string categories to numbers
+                            y = pd.factorize(y)[0]
+
+                        # Apply binning if selected for classification
+                        if st.session_state['task_type'] == "Classification" and 'bin_target' in st.session_state and st.session_state['bin_target']:
+                            # Convert continuous target to bins for classification
+                            y = pd.cut(y, bins=st.session_state['num_bins'], labels=False)
+                            st.info(f"Target variable has been binned into {st.session_state['num_bins']} categories for classification")
                         
                         # Check for categorical features and encode them
                         X = pd.get_dummies(X, drop_first=True)
