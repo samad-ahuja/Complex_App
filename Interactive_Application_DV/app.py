@@ -106,7 +106,14 @@ with st.sidebar:
         # Target variable selection
         target_col = st.selectbox("Select Target Variable", st.session_state['data'].columns)
         st.session_state['target_col'] = target_col
-        
+
+        # Add this validation:
+        # Check if target is suitable for the selected task type
+        if task_type == "Regression" and st.session_state['data'][target_col].dtype not in ['float64', 'int64']:
+            st.warning(f"'{target_col}' appears to be categorical. Consider using Classification instead of Regression.")
+        elif task_type == "Classification" and st.session_state['data'][target_col].dtype in ['float64', 'int64'] and st.session_state['data'][target_col].nunique() > 10:
+            st.warning(f"'{target_col}' appears to be continuous with {st.session_state['data'][target_col].nunique()} unique values. Consider using Regression instead of Classification.")
+                
         # Feature selection
         st.subheader("Feature Selection")
         
@@ -123,23 +130,33 @@ with st.sidebar:
         # Initialize empty lists for selected features
         selected_numerical = []
         selected_categorical = []
+        st.session_state['selected_numerical'] = selected_numerical
+        st.session_state['selected_categorical'] = selected_categorical
+
+        # Add debugging output
+        st.write(f"Num features available: {len(numerical_cols)}")
+        st.write(f"Cat features available: {len(categorical_cols)}")
 
         # Numerical feature selection with sliders (quantitative)
         if numerical_cols:
             st.subheader("Numerical Features")
             for col in numerical_cols:
-                if st.checkbox(f"Use {col}", value=True):
-                    selected_numerical.append(col)
+                if st.checkbox(f"Use {col}", value=True, key=f"num_{col}"):
+                    st.session_state['selected_numerical'].append(col)
 
         # Categorical feature selection with multiselect (qualitative)
         if categorical_cols:
             st.subheader("Categorical Features")
             for col in categorical_cols:
-                if st.checkbox(f"Use {col}", value=True):
-                    selected_categorical.append(col)
+                if st.checkbox(f"Use {col}", value=True, key=f"cat_{col}"):
+                    st.session_state['selected_categorical'].append(col)
+        
+        # Add more debugging output
+        st.write(f"Selected numerical features: {len(selected_numerical)}")
+        st.write(f"Selected categorical features: {len(selected_categorical)}")
 
         # Combine selected features
-        selected_features = selected_numerical + selected_categorical
+        selected_features = st.session_state['selected_numerical'] + st.session_state['selected_categorical']
         st.session_state['feature_cols'] = selected_features
         
         if not selected_features:
@@ -185,14 +202,14 @@ if st.session_state['data'] is not None:
 
     # Clean nulls: drop all-null rows, fill numeric with mean, categorical with mode
     df = st.session_state['data'].copy()
-    df.dropna(how='all', inplace=True)
+    df.dropna(how='all')
     for col in df.columns:
         if df[col].dtype in ['float64', 'int64']:
             df[col].fillna(df[col].mean())
         elif df[col].dtype in ['object', 'category']:
             if df[col].nunique() > 0:
                 df[col].fillna(df[col].mode()[0])
-    df.reset_index(drop=True, inplace=True)
+    df.reset_index(drop=True)
     st.session_state['data'] = df
 
     st.dataframe(st.session_state['data'].head())
@@ -309,15 +326,24 @@ if st.session_state['data'] is not None:
                             st.session_state['predictions'] = y_pred
                             
                             # Calculate metrics
+                            # Calculate metrics
                             if st.session_state['task_type'] == "Regression":
-                                mse = mean_squared_error(y_test, y_pred)
-                                r2 = r2_score(y_test, y_pred)
-                                st.session_state['model_metrics'] = {
-                                    'mse': mse,
-                                    'r2': r2,
-                                    'y_test': y_test,
-                                    'y_pred': y_pred
-                                }
+                                try:
+                                    mse = mean_squared_error(y_test, y_pred)
+                                    r2 = r2_score(y_test, y_pred)
+                                    st.session_state['model_metrics'] = {
+                                        'mse': mse,
+                                        'r2': r2,
+                                        'y_test': y_test,
+                                        'y_pred': y_pred
+                                    }
+                                except Exception as e:
+                                    st.error(f"Error calculating regression metrics: {e}")
+                                    st.session_state['model_metrics'] = {
+                                        'error': str(e),
+                                        'y_test': y_test,
+                                        'y_pred': y_pred
+                                    }
                             else:  # Classification
                                 accuracy = accuracy_score(y_test, y_pred)
                                 conf_matrix = confusion_matrix(y_test, y_pred)
@@ -325,9 +351,22 @@ if st.session_state['data'] is not None:
                                 # For ROC curve (if binary classification)
                                 if len(np.unique(y)) == 2:
                                     if hasattr(model, "predict_proba"):
-                                        y_proba = model.predict_proba(X_test)[:, 1]
-                                        fpr, tpr, _ = roc_curve(y_test, y_proba)
-                                        roc_auc = auc(fpr, tpr)
+                                        try:
+                                            # If y is already numeric (0,1), use directly
+                                            if pd.api.types.is_numeric_dtype(y_test):
+                                                y_proba = model.predict_proba(X_test)[:, 1]
+                                                fpr, tpr, _ = roc_curve(y_test, y_proba)
+                                                roc_auc = auc(fpr, tpr)
+                                            # If y is categorical, encode it to 0,1
+                                            else:
+                                                # Convert categorical to numeric, put a class label in pos_label
+                                                y_test_numeric = pd.factorize(y_test)[0]
+                                                y_proba = model.predict_proba(X_test)[:, 1]
+                                                fpr, tpr, _ = roc_curve(y_test_numeric, y_proba, pos_label=1)
+                                                roc_auc = auc(fpr, tpr)
+                                        except Exception as e:
+                                            st.error(f"Error calculating ROC curve: {e}")
+                                            fpr, tpr, roc_auc = None, None, None
                                     else:
                                         fpr, tpr, roc_auc = None, None, None
                                 else:
@@ -377,12 +416,18 @@ if st.session_state['data'] is not None:
             if st.session_state['task_type'] == "Regression":
                 st.subheader("Regression Metrics")
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
-                    st.metric("Mean Squared Error (MSE)", f"{st.session_state['model_metrics']['mse']:.4f}")
-                
+                    if 'mse' in st.session_state['model_metrics']:
+                        st.metric("Mean Squared Error (MSE)", f"{st.session_state['model_metrics']['mse']:.4f}")
+                    else:
+                        st.warning("MSE metric is not available for this model/target combination")
+
                 with col2:
-                    st.metric("R² Score", f"{st.session_state['model_metrics']['r2']:.4f}")
+                    if 'r2' in st.session_state['model_metrics']:
+                        st.metric("R² Score", f"{st.session_state['model_metrics']['r2']:.4f}")
+                    else:
+                        st.warning("R² Score is not available for this model/target combination")
                 
                 # Residual plot
                 st.subheader("Residual Distribution")
