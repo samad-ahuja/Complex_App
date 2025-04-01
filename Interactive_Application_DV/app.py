@@ -131,22 +131,29 @@ with st.sidebar:
             st.subheader("Convert Continuous Variable to Categories")
             if st.checkbox("Enable binning for classification", key="bin_checkbox"):
                 num_bins = st.slider("Number of bins", 2, 10, 5, key="num_bins_slider")
-                # Show a preview of the binning
-                binned_values = pd.cut(st.session_state['data'][target_col], bins=num_bins)
-                
-                # Display a preview table of the binning
-                bin_preview = pd.DataFrame({
-                    'Bin': binned_values.cat.categories.astype(str),
-                    'Count': binned_values.value_counts(sort=False).values
-                })
-                st.write("Preview of binned values:")
-                st.dataframe(bin_preview)
-                
-                # Store binning info in session state
-                st.session_state['bin_target'] = True
-                st.session_state['num_bins'] = num_bins
-                
-                st.success("✅ Binning enabled! The continuous variable will be converted to categories for classification.")
+                try:
+                    # Show a preview of the binning
+                    binned_values = pd.cut(st.session_state['data'][target_col], bins=num_bins)
+                    
+                    # Display a preview table of the binning - FIX HERE
+                    bin_counts = binned_values.value_counts(sort=False)
+                    bin_preview = pd.DataFrame({
+                        'Bin': [str(cat) for cat in bin_counts.index],
+                        'Count': bin_counts.values
+                    })
+                    st.write("Preview of binned values:")
+                    st.dataframe(bin_preview)
+                    
+                    # Store binning info in session state
+                    st.session_state['bin_target'] = True
+                    st.session_state['num_bins'] = num_bins
+                    
+                    st.success("✅ Binning enabled! The continuous variable will be converted to categories for classification.")
+
+                except Exception as e:
+                    st.error(f"Error generating bin preview: {str(e)}")
+                    st.session_state['bin_target'] = False
+                    
             else:
                 st.session_state['bin_target'] = False
 
